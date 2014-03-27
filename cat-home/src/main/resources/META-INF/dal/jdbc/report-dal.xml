@@ -47,7 +47,22 @@
 					]]></statement>
 			</query>
 		</query-defs>
-	</entity>
+  </entity>
+  <entity name="daily-report-content" table="daily_report_content" alias="drc" class-name="DailyReportContent">
+	 <member name="creation-date" insert-expr="NOW()" />
+     <query-defs>
+     </query-defs>
+  </entity>	
+  <entity name="weekly-report-content" table="weekly_report_content" alias="wrc" class-name="WeeklyReportContent">
+	 <member name="creation-date" insert-expr="NOW()" />
+     <query-defs>
+     </query-defs>
+  </entity>  
+  <entity name="monthly-report-content" table="monthly_report_content" alias="mrc" class-name="MonthlyReportContent">
+	 <member name="creation-date" insert-expr="NOW()" />
+     <query-defs>
+     </query-defs>
+  </entity>  
 </entities>
 
 
