@@ -21,6 +21,7 @@
    			 	<li class="text-right"><a href="#tab1" data-toggle="tab"><strong>版本说明</strong></a></li>
    			 	<li class="text-right"><a href="#tab2" data-toggle="tab"><strong>集成文档</strong></a></li>
    			 	<li class="text-right"><a href="#tab8" data-toggle="tab"><strong>业务监控</strong></a></li>
+   			 	<li class="text-right"><a href="#tab9" data-toggle="tab"><strong>变更监控</strong></a></li>
    			 	<li class="text-right"><a href="#tab3" data-toggle="tab"><strong>开发者文档</strong></a></li>
    			 	<li class="text-right"><a href="#tab4" data-toggle="tab"><strong>设计文档</strong></a></li>
    			 	<li class="text-right"><a href="#tab5" data-toggle="tab"><strong>用户文档</strong></a></li>
@@ -32,6 +33,7 @@
 	    		<div class="tab-pane" id="tab1"><%@ include file="releasenotes.jsp"%></div>
 	    		<div class="tab-pane" id="tab2"><%@ include file="integratingDocument.jsp"%></div>
 	    		<div class="tab-pane" id="tab8"><%@ include file="integratingBusiness.jsp"%></div>
+	    		<div class="tab-pane" id="tab9"><%@ include file="alterationDocument.jsp"%></div>
 	    		<div class="tab-pane" id="tab3"><%@ include file="developDocument.jsp"%></div>
 	    		<div class="tab-pane" id="tab4"><%@ include file="develop.jsp"%></div>
 	    		<div class="tab-pane" id="tab5"><%@ include file="userDocument.jsp"%></div>

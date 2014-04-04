@@ -1,4 +1,4 @@
-package com.dianping.cat.report.page.systemMonitor;
+package com.dianping.cat.report.page.alteration;
 
 import com.dianping.cat.report.ReportPage;
 import org.unidal.web.mvc.view.BaseJspViewer;
@@ -9,7 +9,9 @@ public class JspViewer extends BaseJspViewer<ReportPage, Action, Context, Model>
 		Action action = model.getAction();
 
 		switch (action) {
-		case SYSTEM_API:
+		case INSERT:
+			return JspFile.INSERT.getPath();
+		case VIEW:
 			return JspFile.VIEW.getPath();
 		}
 

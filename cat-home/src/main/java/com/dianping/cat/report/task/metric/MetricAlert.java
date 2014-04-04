@@ -22,15 +22,13 @@ import com.dianping.cat.consumer.metric.MetricAnalyzer;
 import com.dianping.cat.consumer.metric.MetricConfigManager;
 import com.dianping.cat.consumer.metric.ProductLineConfigManager;
 import com.dianping.cat.consumer.metric.model.entity.MetricReport;
-import com.dianping.cat.consumer.metric.model.entity.Point;
+import com.dianping.cat.consumer.metric.model.entity.Segment;
 import com.dianping.cat.helper.TimeUtil;
 import com.dianping.cat.message.Event;
 import com.dianping.cat.message.Transaction;
 import com.dianping.cat.report.baseline.BaselineService;
-import com.dianping.cat.report.page.model.spi.ModelService;
 import com.dianping.cat.service.ModelPeriod;
 import com.dianping.cat.service.ModelRequest;
-import com.dianping.cat.service.ModelResponse;
 import com.dianping.cat.system.tool.MailSMS;
 
 public class MetricAlert implements Task, LogEnabled {
@@ -47,19 +45,20 @@ public class MetricAlert implements Task, LogEnabled {
 	@Inject
 	private MailSMS m_mailSms;
 
-	@Inject(type = ModelService.class, value = MetricAnalyzer.ID)
-	private ModelService<MetricReport> m_service;
+	@Inject
+	private RemoteMetricReportService m_service;
 
 	@Inject
 	private AlertConfig m_alertConfig;
+
+	@Inject
+	private AlertInfo m_alertInfo;
 
 	private static final long DURATION = TimeUtil.ONE_MINUTE;
 
 	private static final int DATA_CHECK_MINUTE = 2;
 
 	private static final int DATA_AREADY_MINUTE = 1;
-
-	private SimpleDateFormat m_sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 	private Map<String, MetricReport> m_currentReports = new HashMap<String, MetricReport>();
 
@@ -75,36 +74,49 @@ public class MetricAlert implements Task, LogEnabled {
 
 		if (minute > DATA_CHECK_MINUTE) {
 			MetricReport report = fetchMetricReport(product, ModelPeriod.CURRENT);
-			int start = minute + 1 - DATA_CHECK_MINUTE;
-			int end = minute;
 
-			value = queryRealData(start, end, metricKey, report, type);
-			baseline = queryBaseLine(start, end, metricKey, new Date(ModelPeriod.CURRENT.getStartTime()), type);
+			if (report != null) {
+				int start = minute + 1 - DATA_CHECK_MINUTE;
+				int end = minute;
+
+				value = queryRealData(start, end, metricKey, report, type);
+				baseline = queryBaseLine(start, end, metricKey, new Date(ModelPeriod.CURRENT.getStartTime()), type);
+
+				return m_alertConfig.checkData(config, value, baseline, type);
+			}
 		} else if (minute < 0) {
 			MetricReport lastReport = fetchMetricReport(product, ModelPeriod.LAST);
-			int start = minute + 1 - (DATA_CHECK_MINUTE);
-			int end = 60 + minute;
 
-			value = queryRealData(start, end, metricKey, lastReport, type);
-			baseline = queryBaseLine(start, end, metricKey, new Date(ModelPeriod.LAST.getStartTime()), type);
+			if (lastReport != null) {
+				int start = 60 + minute + 1 - (DATA_CHECK_MINUTE);
+				int end = 60 + minute;
+
+				value = queryRealData(start, end, metricKey, lastReport, type);
+				baseline = queryBaseLine(start, end, metricKey, new Date(ModelPeriod.LAST.getStartTime()), type);
+				return m_alertConfig.checkData(config, value, baseline, type);
+			}
 		} else {
 			MetricReport currentReport = fetchMetricReport(product, ModelPeriod.CURRENT);
-			int currentStart = 0, currentEnd = minute;
-			double[] currentValue = queryRealData(currentStart, currentEnd, metricKey, currentReport, type);
-			double[] currentBaseline = queryBaseLine(currentStart, currentEnd, metricKey,
-			      new Date(ModelPeriod.CURRENT.getStartTime()), type);
-
 			MetricReport lastReport = fetchMetricReport(product, ModelPeriod.LAST);
-			int lastStart = 60 + 1 - (DATA_CHECK_MINUTE - minute);
-			int lastEnd = 59;
-			double[] lastValue = queryRealData(lastStart, lastEnd, metricKey, lastReport, type);
-			double[] lastBaseline = queryBaseLine(lastStart, lastEnd, metricKey,
-			      new Date(ModelPeriod.LAST.getStartTime()), type);
 
-			value = mergerArray(lastValue, currentValue);
-			baseline = mergerArray(lastBaseline, currentBaseline);
+			if (currentReport != null && lastReport != null) {
+				int currentStart = 0, currentEnd = minute;
+				double[] currentValue = queryRealData(currentStart, currentEnd, metricKey, currentReport, type);
+				double[] currentBaseline = queryBaseLine(currentStart, currentEnd, metricKey,
+				      new Date(ModelPeriod.CURRENT.getStartTime()), type);
+
+				int lastStart = 60 + 1 - (DATA_CHECK_MINUTE - minute);
+				int lastEnd = 59;
+				double[] lastValue = queryRealData(lastStart, lastEnd, metricKey, lastReport, type);
+				double[] lastBaseline = queryBaseLine(lastStart, lastEnd, metricKey,
+				      new Date(ModelPeriod.LAST.getStartTime()), type);
+
+				value = mergerArray(lastValue, currentValue);
+				baseline = mergerArray(lastBaseline, currentBaseline);
+				return m_alertConfig.checkData(config, value, baseline, type);
+			}
 		}
-		return m_alertConfig.checkData(value, baseline, type);
+		return null;
 	}
 
 	@Override
@@ -117,25 +129,32 @@ public class MetricAlert implements Task, LogEnabled {
 			MetricReport report = m_currentReports.get(product);
 
 			if (report != null) {
-				m_currentReports.put(product, report);
+				return report;
+			} else {
+				ModelRequest request = new ModelRequest(product, ModelPeriod.CURRENT.getStartTime());
+
+				report = m_service.invoke(request);
+				if (report != null) {
+					m_currentReports.put(product, report);
+				}
 				return report;
 			}
 		} else if (period == ModelPeriod.LAST) {
 			MetricReport report = m_lastReports.get(product);
 
 			if (report != null) {
-				m_lastReports.put(product, report);
+				return report;
+			} else {
+				ModelRequest request = new ModelRequest(product, ModelPeriod.LAST.getStartTime());
+
+				report = m_service.invoke(request);
+				if (report != null) {
+					m_lastReports.put(product, report);
+				}
 				return report;
 			}
-		}
-		ModelRequest request = new ModelRequest(product, period.getStartTime());
-
-		if (m_service.isEligable(request)) {
-			ModelResponse<MetricReport> response = m_service.invoke(request);
-
-			return response.getModel();
 		} else {
-			throw new RuntimeException("Internal error: no eligable metric service registered for " + request + "!");
+			throw new RuntimeException("internal error, this can't be reached.");
 		}
 	}
 
@@ -168,6 +187,11 @@ public class MetricAlert implements Task, LogEnabled {
 		String product = productLine.getId();
 
 		for (MetricItemConfig config : configs) {
+			if ((!config.getAlarm() && !config.isShowAvgDashboard() && !config.isShowSumDashboard() && !config
+			      .isShowCountDashboard())) {
+				continue;
+			}
+
 			Pair<Boolean, String> alert = null;
 			if (config.isShowAvg()) {
 				alert = computeAlertInfo(minute, product, config, MetricType.AVG);
@@ -179,12 +203,11 @@ public class MetricAlert implements Task, LogEnabled {
 				alert = computeAlertInfo(minute, product, config, MetricType.SUM);
 			}
 			if (alert != null && alert.getKey()) {
-				String content = "[ " + alert.getValue() + " ][ minute:" + (minute + 60) % 60 + " ][ time:"
-				      + m_sdf.format(new Date()) + "]";
+				config.setId(m_metricConfigManager.buildMetricKey(config.getDomain(), config.getType(),
+				      config.getMetricKey()));
 
-				sendAlertInfo(productLine, config, content);
-
-				Cat.logEvent("MetricAlert", productLine.getId(), Event.SUCCESS, content);
+				m_alertInfo.addMetric(config, new Date().getTime());
+				sendAlertInfo(productLine, config, alert.getValue());
 			}
 		}
 	}
@@ -200,19 +223,18 @@ public class MetricAlert implements Task, LogEnabled {
 
 	private double[] queryRealData(int start, int end, String metricKey, MetricReport report, MetricType type) {
 		double[] all = new double[60];
-		Map<Integer, Point> map = report.findOrCreateMetricItem(metricKey).findOrCreateAbtest("-1").findOrCreateGroup("")
-		      .getPoints();
+		Map<Integer, Segment> map = report.findOrCreateMetricItem(metricKey).getSegments();
 
-		for (Entry<Integer, Point> entry : map.entrySet()) {
+		for (Entry<Integer, Segment> entry : map.entrySet()) {
 			Integer minute = entry.getKey();
-			Point point = entry.getValue();
+			Segment seg = entry.getValue();
 
 			if (type == MetricType.AVG) {
-				all[minute] = point.getAvg();
+				all[minute] = seg.getAvg();
 			} else if (type == MetricType.COUNT) {
-				all[minute] = (double) point.getCount();
+				all[minute] = (double) seg.getCount();
 			} else if (type == MetricType.SUM) {
-				all[minute] = point.getSum();
+				all[minute] = seg.getSum();
 			}
 		}
 		int length = end - start + 1;
@@ -231,7 +253,13 @@ public class MetricAlert implements Task, LogEnabled {
 		}
 		boolean active = true;
 		while (active) {
-			Transaction t = Cat.newTransaction("MetricAlert", "Minute:" + Calendar.getInstance().get(Calendar.MINUTE));
+			int minute = Calendar.getInstance().get(Calendar.MINUTE);
+			String minuteStr = String.valueOf(minute);
+
+			if (minute < 10) {
+				minuteStr = '0' + minuteStr;
+			}
+			Transaction t = Cat.newTransaction("MetricAlert", "M" + minuteStr);
 			long current = System.currentTimeMillis();
 
 			m_currentReports.clear();
@@ -266,10 +294,15 @@ public class MetricAlert implements Task, LogEnabled {
 
 	private void sendAlertInfo(ProductLine productLine, MetricItemConfig config, String content) {
 		List<String> emails = m_alertConfig.buildMailReceivers(productLine);
+		List<String> phones = m_alertConfig.buildSMSReceivers(productLine);
 		String title = m_alertConfig.buildMailTitle(productLine, config);
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 		m_logger.info(title + " " + content + " " + emails);
 		m_mailSms.sendEmail(title, content, emails);
+		m_mailSms.sendSms(title + " " + sdf.format(new Date()), content, phones);
+
+		Cat.logEvent("MetricAlert", productLine.getId(), Event.SUCCESS, title + "  " + content);
 	}
 
 	@Override
