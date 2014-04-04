@@ -2,6 +2,9 @@ package com.dianping.cat.report.page.model.transaction;
 
 import java.util.List;
 
+import org.codehaus.plexus.logging.LogEnabled;
+import org.codehaus.plexus.logging.Logger;
+
 import com.dianping.cat.consumer.transaction.TransactionAnalyzer;
 import com.dianping.cat.consumer.transaction.TransactionReportMerger;
 import com.dianping.cat.consumer.transaction.model.entity.TransactionReport;
@@ -10,7 +13,14 @@ import com.dianping.cat.report.page.model.spi.internal.BaseRemoteModelService;
 import com.dianping.cat.service.ModelRequest;
 import com.dianping.cat.service.ModelResponse;
 
-public class CompositeTransactionService extends BaseCompositeModelService<TransactionReport> {
+public class CompositeTransactionService extends BaseCompositeModelService<TransactionReport> implements LogEnabled{
+	private Logger m_logger;
+
+	@Override
+	public void enableLogging(Logger logger) {
+		m_logger = logger;
+	}
+	
 	public CompositeTransactionService() {
 		super(TransactionAnalyzer.ID);
 	}
@@ -22,6 +32,7 @@ public class CompositeTransactionService extends BaseCompositeModelService<Trans
 
 	@Override
 	protected TransactionReport merge(ModelRequest request, List<ModelResponse<TransactionReport>> responses) {
+		m_logger.info("reponse size:" + responses.size());
 		if (responses.size() == 0) {
 			return null;
 		}
@@ -31,6 +42,7 @@ public class CompositeTransactionService extends BaseCompositeModelService<Trans
 			if (response != null) {
 				TransactionReport model = response.getModel();
 				if (model != null) {
+					m_logger.info("model accept");
 					model.accept(merger);
 				}
 			}
