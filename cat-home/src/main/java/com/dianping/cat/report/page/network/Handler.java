@@ -15,16 +15,17 @@ import org.unidal.web.mvc.annotation.InboundActionMeta;
 import org.unidal.web.mvc.annotation.OutboundActionMeta;
 import org.unidal.web.mvc.annotation.PayloadMeta;
 
-import com.dianping.cat.consumer.company.model.entity.ProductLine;
 import com.dianping.cat.consumer.metric.ProductLineConfigManager;
 import com.dianping.cat.helper.TimeUtil;
 import com.dianping.cat.home.metricAggregation.entity.MetricAggregationGroup;
 import com.dianping.cat.report.ReportPage;
 import com.dianping.cat.report.chart.AggregationGraphCreator;
+import com.dianping.cat.report.chart.NetworkGraphCreator;
 import com.dianping.cat.report.page.LineChart;
 import com.dianping.cat.report.page.PayloadNormalizer;
+import com.dianping.cat.report.page.network.nettopology.NetGraphManager;
+import com.dianping.cat.service.ModelPeriod;
 import com.dianping.cat.system.config.MetricAggregationConfigManager;
-import com.dianping.cat.system.config.MetricGroupConfigManager;
 
 public class Handler implements PageHandler<Context> {
 	@Inject
@@ -37,13 +38,16 @@ public class Handler implements PageHandler<Context> {
 	private ProductLineConfigManager m_productLineConfigManager;
 
 	@Inject
-	private MetricGroupConfigManager m_metricGroupConfigManager;
-
-	@Inject
 	private MetricAggregationConfigManager m_metricAggregationConfigManager;
 
 	@Inject
 	private AggregationGraphCreator m_aggregationGraphCreator;
+
+	@Inject
+	private NetworkGraphCreator m_defaultAggGraphCreator;
+
+	@Inject
+	private NetGraphManager m_netGraphManager;
 
 	@Override
 	@PayloadMeta(Payload.class)
@@ -63,53 +67,91 @@ public class Handler implements PageHandler<Context> {
 		int timeRange = payload.getTimeRange();
 		Date start = new Date(date - (timeRange - 1) * TimeUtil.ONE_HOUR);
 		Date end = new Date(date + TimeUtil.ONE_HOUR);
-		
-		Map<String, ProductLine> productLines = m_productLineConfigManager.queryNetworkProductLines();
-		Map<String, MetricAggregationGroup> metricAggregationGroups = m_metricAggregationConfigManager
-		      .getMetricAggregationConfig().getMetricAggregationGroups();
-		List<MetricAggregationGroup> metricAggregationGroupList = new ArrayList<MetricAggregationGroup>();
-		
-		for (Entry<String, MetricAggregationGroup> entry : metricAggregationGroups.entrySet()) {
-	      if(productLines.containsKey(entry.getKey())) {
-	      	metricAggregationGroupList.add(entry.getValue());
-	      }
-      }
-		
-		if (payload.getProduct() == null) {
-			if (!metricAggregationGroupList.isEmpty()) {
-				String metricAggregationGroup = ((MetricAggregationGroup) metricAggregationGroupList.get(0)).getId();
 
-				payload.setProduct(metricAggregationGroup);
-			}
-		}
-		
 		switch (payload.getAction()) {
-		case NETWORK:
-			Map<String, LineChart> charts = m_aggregationGraphCreator.buildChartsByProductLine(payload.getProduct(),
-			      start, end);
-			
+		case METRIC:
+			Map<String, LineChart> charts = m_defaultAggGraphCreator.buildChartsByProductLine(payload.getProduct(), start,
+			      end);
+
 			model.setLineCharts(new ArrayList<LineChart>(charts.values()));
-			model.setMetricAggregationGroup(metricAggregationGroupList);
 			break;
-		default:
-			throw new RuntimeException("Unknown action: " + payload.getAction());
+		case AGGREGATION:
+			Map<String, LineChart> allCharts = m_aggregationGraphCreator.buildDashboardByGroup(start, end,
+			      payload.getGroup());
+			model.setLineCharts(new ArrayList<LineChart>(allCharts.values()));
+			break;
+		case NETTOPOLOGY:
+			model.setNetGraphData(m_netGraphManager.getNetGraphData(model.getStartTime(), model.getMinute()));
+			break;
 		}
+
 		m_jspViewer.view(ctx, model);
 	}
 
 	private void normalize(Model model, Payload payload) {
 		model.setPage(ReportPage.NETWORK);
-		String poduct = payload.getProduct();
 
-		if (poduct == null || poduct.length() == 0) {
-			payload.setAction(Action.NETWORK.getName());
+		Map<String, MetricAggregationGroup> metricAggregationGroups = m_metricAggregationConfigManager
+		      .getMetricAggregationConfig().getMetricAggregationGroups();
+		List<MetricAggregationGroup> metricAggregationGroupList = new ArrayList<MetricAggregationGroup>();
+
+		for (Entry<String, MetricAggregationGroup> entry : metricAggregationGroups.entrySet()) {
+			if ("network".equalsIgnoreCase(entry.getValue().getDisplay())) {
+				metricAggregationGroupList.add(entry.getValue());
+			}
 		}
-		m_normalizePayload.normalize(model, payload);
-		int timeRange = payload.getTimeRange();
-		Date startTime = new Date(payload.getDate() - (timeRange - 1) * TimeUtil.ONE_HOUR);
-		Date endTime = new Date(payload.getDate() + TimeUtil.ONE_HOUR - 1);
+		
+		if(payload.getProduct() == null && payload.getGroup() == null) {
+			payload.setAction(Action.NETTOPOLOGY.getName());
+		}
 
-		model.setStartTime(startTime);
-		model.setEndTime(endTime);
+		model.setMetricAggregationGroup(metricAggregationGroupList);
+		model.setProductLines(m_productLineConfigManager.queryNetworkProductLines().values());
+
+		m_normalizePayload.normalize(model, payload);
+
+		if (payload.getAction().equals(Action.NETTOPOLOGY)) {
+			long current = System.currentTimeMillis() - TimeUtil.ONE_MINUTE;
+			int curMinute = (int) ((current - current % TimeUtil.ONE_MINUTE) % TimeUtil.ONE_HOUR / TimeUtil.ONE_MINUTE);
+			long startTime = payload.getDate();
+			int minute = payload.getMinute();
+
+			if (minute == -1) {
+				minute = curMinute;
+				if (curMinute == 59) {
+					startTime -= TimeUtil.ONE_HOUR;
+				}
+			}
+
+			int maxMinute = 59;
+			if (startTime == ModelPeriod.CURRENT.getStartTime()) {
+				maxMinute = curMinute;
+			}
+			
+			Date start = new Date(startTime);
+			Date end = new Date(startTime + TimeUtil.ONE_HOUR - 1);
+			List<Integer> minutes = new ArrayList<Integer>();
+
+			for (int i = 0; i < 60; i++) {
+				minutes.add(i);
+			}
+
+			model.setMinutes(minutes);
+			model.setMinute(minute);
+			model.setMaxMinute(maxMinute);
+			model.setStartTime(start);
+			model.setEndTime(end);
+			model.setIpAddress(payload.getIpAddress());
+			model.setAction(payload.getAction());
+			model.setDisplayDomain(payload.getDomain());
+		} else {
+			int timeRange = payload.getTimeRange();
+			Date startTime = new Date(payload.getDate() - (timeRange - 1) * TimeUtil.ONE_HOUR);
+			Date endTime = new Date(payload.getDate() + TimeUtil.ONE_HOUR - 1);
+
+			model.setStartTime(startTime);
+			model.setEndTime(endTime);
+		}
 	}
+
 }

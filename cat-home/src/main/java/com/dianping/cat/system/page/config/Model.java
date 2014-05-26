@@ -1,6 +1,7 @@
 package com.dianping.cat.system.page.config;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.Map;
 import org.unidal.web.mvc.ViewModel;
 
 import com.dianping.cat.advanced.metric.config.entity.MetricItemConfig;
+import com.dianping.cat.configuration.url.pattern.entity.PatternItem;
 import com.dianping.cat.consumer.aggreation.model.entity.AggregationRule;
 import com.dianping.cat.consumer.company.model.entity.Domain;
 import com.dianping.cat.consumer.company.model.entity.ProductLine;
@@ -30,6 +32,10 @@ public class Model extends ViewModel<SystemPage, Action, Context> {
 
 	private List<AggregationRule> m_aggregationRules;
 
+	private PatternItem m_patternItem;
+
+	private Collection<PatternItem> m_patternItems;
+	
 	private ExceptionLimit m_exceptionLimit;
 
 	private List<ExceptionLimit> m_exceptionLimits;
@@ -47,7 +53,9 @@ public class Model extends ViewModel<SystemPage, Action, Context> {
 	private ProductLine m_productLine;
 
 	private Map<String, ProductLine> m_productLines;
-
+	
+	private Map<String,List<ProductLine>> m_typeToProductLines;
+	
 	private MetricItemConfig m_metricItemConfig;
 
 	private Map<ProductLine, List<MetricItemConfig>> m_productMetricConfigs;
@@ -57,6 +65,10 @@ public class Model extends ViewModel<SystemPage, Action, Context> {
 	private String m_content;
 
 	private Map<String, Domain> m_productLineToDomains;
+	
+	private List<String> domainList;
+	
+	private List<String> exceptionList;
 
 	public static final String SUCCESS = "Success";
 
@@ -163,6 +175,22 @@ public class Model extends ViewModel<SystemPage, Action, Context> {
 		return m_productLineToDomains;
 	}
 
+	public List<String> getDomainList() {
+		return domainList;
+	}
+
+	public void setDomainList(List<String> domainList) {
+		this.domainList = domainList;
+	}
+
+	public List<String> getExceptionList() {
+		return exceptionList;
+	}
+
+	public void setExceptionList(List<String> exceptionList) {
+		this.exceptionList = exceptionList;
+	}
+
 	public Map<ProductLine, List<MetricItemConfig>> getProductMetricConfigs() {
 		return m_productMetricConfigs;
 	}
@@ -254,6 +282,30 @@ public class Model extends ViewModel<SystemPage, Action, Context> {
 	public void setProjects(List<Project> projects) {
 		m_projects = projects;
 	}
+
+	public Map<String, List<ProductLine>> getTypeToProductLines() {
+   	return m_typeToProductLines;
+   }
+
+	public void setTypeToProductLines(Map<String, List<ProductLine>> typeToProductLines) {
+   	m_typeToProductLines = typeToProductLines;
+   }
+	
+	public PatternItem getPatternItem() {
+   	return m_patternItem;
+   }
+
+	public void setPatternItem(PatternItem patternItem) {
+   	m_patternItem = patternItem;
+   }
+
+	public Collection<PatternItem> getPatternItems() {
+   	return m_patternItems;
+   }
+
+	public void setPatternItems(Collection<PatternItem> patternItems) {
+   	m_patternItems = patternItems;
+   }
 
 	public static class Edge {
 		private List<EdgeConfig> m_edgeConfigs;

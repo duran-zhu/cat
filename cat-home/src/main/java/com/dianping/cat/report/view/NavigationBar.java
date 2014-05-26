@@ -24,6 +24,8 @@ public class NavigationBar {
 		ReportPage.HOME,
 
 		ReportPage.METRIC,
+		
+		ReportPage.USERMONITOR,
 
 		ReportPage.TRANSACTION,
 
@@ -41,15 +43,15 @@ public class NavigationBar {
 
 		ReportPage.DEPENDENCY,
 
+		ReportPage.NETWORK,
+
+		ReportPage.ALTERATION,
+
 		ReportPage.STATE,
 
 		ReportPage.STATISTICS,
-
+		
 		ReportPage.LOGVIEW,
-		
-		ReportPage.ALTERATION,
-		
-		ReportPage.NETWORK,
 
 		};
 	}

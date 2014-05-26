@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,6 +26,7 @@ import org.unidal.web.mvc.annotation.PayloadMeta;
 import com.dianping.cat.Cat;
 import com.dianping.cat.Constants;
 import com.dianping.cat.advanced.metric.config.entity.MetricItemConfig;
+import com.dianping.cat.config.UrlPatternConfigManager;
 import com.dianping.cat.consumer.aggreation.model.entity.AggregationRule;
 import com.dianping.cat.consumer.company.model.entity.ProductLine;
 import com.dianping.cat.consumer.metric.MetricConfigManager;
@@ -33,10 +35,13 @@ import com.dianping.cat.consumer.problem.aggregation.AggregationConfigManager;
 import com.dianping.cat.core.dal.Project;
 import com.dianping.cat.core.dal.ProjectDao;
 import com.dianping.cat.core.dal.ProjectEntity;
+import com.dianping.cat.helper.TimeUtil;
+import com.dianping.cat.home.bug.entity.BugReport;
 import com.dianping.cat.home.dependency.config.entity.DomainConfig;
 import com.dianping.cat.home.dependency.config.entity.EdgeConfig;
 import com.dianping.cat.home.dependency.exception.entity.ExceptionLimit;
 import com.dianping.cat.report.page.dependency.graph.TopologyGraphConfigManager;
+import com.dianping.cat.report.service.ReportService;
 import com.dianping.cat.report.view.DomainNavManager;
 import com.dianping.cat.system.SystemPage;
 import com.dianping.cat.system.config.BugConfigManager;
@@ -44,6 +49,7 @@ import com.dianping.cat.system.config.DomainGroupConfigManager;
 import com.dianping.cat.system.config.ExceptionThresholdConfigManager;
 import com.dianping.cat.system.config.MetricAggregationConfigManager;
 import com.dianping.cat.system.config.MetricGroupConfigManager;
+import com.dianping.cat.system.config.MetricRuleConfigManager;
 import com.dianping.cat.system.config.UtilizationConfigManager;
 
 public class Handler implements PageHandler<Context> {
@@ -79,12 +85,21 @@ public class Handler implements PageHandler<Context> {
 
 	@Inject
 	private MetricGroupConfigManager m_metricGroupConfigManager;
-	
+
 	@Inject
 	private MetricAggregationConfigManager m_metricAggregationConfigManager;
-	
+
+	@Inject
+	private UrlPatternConfigManager m_urlPatternConfigManager;
+
+	@Inject
+	private MetricRuleConfigManager m_metricRuleConfigManager;
+
 	@Inject
 	private DomainNavManager m_manager;
+
+	@Inject
+	private ReportService m_reportService;
 
 	private void deleteAggregationRule(Payload payload) {
 		m_aggreationConfigManager.deleteAggregationRule(payload.getPattern());
@@ -92,6 +107,17 @@ public class Handler implements PageHandler<Context> {
 
 	private void deleteExceptionLimit(Payload payload) {
 		m_exceptionConfigManager.deleteExceptionLimit(payload.getDomain(), payload.getException());
+	}
+
+	private void deleteProject(Payload payload) {
+		try {
+			Project proto = new Project();
+			proto.setId(payload.getProjectId());
+			proto.setKeyId(payload.getProjectId());
+			m_projectDao.deleteByPK(proto);
+		} catch (Exception e) {
+			Cat.logError(e);
+		}
 	}
 
 	private void graphEdgeConfigAdd(Payload payload, Model model) {
@@ -188,20 +214,38 @@ public class Handler implements PageHandler<Context> {
 			updateProject(payload);
 			model.setProjects(queryAllProjects());
 			break;
-
+		case PROJECT_DELETE:
+			deleteProject(payload);
+			model.setProjects(queryAllProjects());
+			break;
 		case AGGREGATION_ALL:
-			model.setAggregationRules(m_aggreationConfigManager.queryAggrarationRules());
+			model.setAggregationRules(m_aggreationConfigManager.queryAggregationRules());
 			break;
 		case AGGREGATION_UPDATE:
 			model.setAggregationRule(m_aggreationConfigManager.queryAggration(payload.getPattern()));
 			break;
 		case AGGREGATION_UPDATE_SUBMIT:
 			updateAggregationRule(payload);
-			model.setAggregationRules(m_aggreationConfigManager.queryAggrarationRules());
+			model.setAggregationRules(m_aggreationConfigManager.queryAggregationRules());
 			break;
 		case AGGREGATION_DELETE:
 			deleteAggregationRule(payload);
-			model.setAggregationRules(m_aggreationConfigManager.queryAggrarationRules());
+			model.setAggregationRules(m_aggreationConfigManager.queryAggregationRules());
+			break;
+
+		case URL_PATTERN_ALL:
+			model.setPatternItems(m_urlPatternConfigManager.queryUrlPatternRules());
+			break;
+		case URL_PATTERN_UPDATE:
+			model.setPatternItem(m_urlPatternConfigManager.queryUrlPattern(payload.getKey()));
+			break;
+		case URL_PATTERN_UPDATE_SUBMIT:
+			m_urlPatternConfigManager.insertPatternItem(payload.getPatternItem());
+			model.setPatternItems(m_urlPatternConfigManager.queryUrlPatternRules());
+			break;
+		case URL_PATTERN_DELETE:
+			m_urlPatternConfigManager.deletePatternItem(payload.getKey());
+			model.setPatternItems(m_urlPatternConfigManager.queryUrlPatternRules());
 			break;
 
 		case TOPOLOGY_GRAPH_NODE_CONFIG_LIST:
@@ -241,6 +285,7 @@ public class Handler implements PageHandler<Context> {
 
 		case TOPOLOGY_GRAPH_PRODUCT_LINE:
 			model.setProductLines(m_productLineConfigManger.queryAllProductLines());
+			model.setTypeToProductLines(m_productLineConfigManger.queryTypeProductLines());
 			break;
 		case TOPOLOGY_GRAPH_PRODUCT_LINE_ADD_OR_UPDATE:
 			graphPruductLineAddOrUpdate(payload, model);
@@ -249,10 +294,12 @@ public class Handler implements PageHandler<Context> {
 		case TOPOLOGY_GRAPH_PRODUCT_LINE_DELETE:
 			model.setOpState(m_productLineConfigManger.deleteProductLine(payload.getProductLineName()));
 			model.setProductLines(m_productLineConfigManger.queryAllProductLines());
+			model.setTypeToProductLines(m_productLineConfigManger.queryTypeProductLines());
 			break;
 		case TOPOLOGY_GRAPH_PRODUCT_LINE_ADD_OR_UPDATE_SUBMIT:
 			model.setOpState(graphProductLineConfigAddOrUpdateSubmit(payload, model));
 			model.setProductLines(m_productLineConfigManger.queryAllProductLines());
+			model.setTypeToProductLines(m_productLineConfigManger.queryTypeProductLines());
 			break;
 
 		case METRIC_CONFIG_ADD_OR_UPDATE:
@@ -277,7 +324,15 @@ public class Handler implements PageHandler<Context> {
 			      payload.getDomain(), payload.getType(), payload.getMetricKey())));
 			metricConfigList(payload, model);
 			break;
-
+		case METRIC_RULE_CONFIG_UPDATE:
+			String metricRuleConfig = payload.getContent();
+			if (!StringUtils.isEmpty(metricRuleConfig)) {
+				model.setOpState(m_metricRuleConfigManager.insert(metricRuleConfig));
+			} else {
+				model.setOpState(true);
+			}
+			model.setContent(m_metricRuleConfigManager.getMonitorRules().toString());
+			break;
 		case EXCEPTION_THRESHOLDS:
 			model.setExceptionLimits(m_exceptionConfigManager.queryAllExceptionLimits());
 			break;
@@ -288,6 +343,10 @@ public class Handler implements PageHandler<Context> {
 		case EXCEPTION_THRESHOLD_UPDATE:
 			model.setExceptionLimit(m_exceptionConfigManager.queryDomainExceptionLimit(payload.getDomain(),
 			      payload.getException()));
+			break;
+		case EXCEPTION_THRESHOLD_ADD:
+			model.setExceptionList(queryExceptionList());
+			model.setDomainList(queryDoaminList());
 			break;
 		case EXCEPTION_THRESHOLD_UPDATE_SUBMIT:
 			updateExceptionLimit(payload);
@@ -357,6 +416,7 @@ public class Handler implements PageHandler<Context> {
 
 		if (!StringUtil.isEmpty(domain) && !StringUtil.isEmpty(type) && !StringUtil.isEmpty(metricKey)) {
 			config.setId(m_metricConfigManager.buildMetricKey(domain, type, metricKey));
+			
 			return m_metricConfigManager.insertMetricItemConfig(config);
 		} else {
 			return false;
@@ -369,28 +429,20 @@ public class Handler implements PageHandler<Context> {
 		Set<String> exists = new HashSet<String>();
 
 		for (Entry<String, ProductLine> entry : productLines.entrySet()) {
-			Set<String> domains = entry.getValue().getDomains().keySet();
-			List<MetricItemConfig> configs = m_metricConfigManager.queryMetricItemConfigs(domains);
+			ProductLine productLine = entry.getValue();
+			
+			if (productLine.isMetricDashboard()) {
+				Set<String> domains = productLine.getDomains().keySet();
+				List<MetricItemConfig> configs = m_metricConfigManager.queryMetricItemConfigs(domains);
 
-			for (MetricItemConfig config : configs) {
-				exists.add(m_metricConfigManager.buildMetricKey(config.getDomain(), config.getType(), config.getMetricKey()));
+				for (MetricItemConfig config : configs) {
+					exists.add(m_metricConfigManager.buildMetricKey(config.getDomain(), config.getType(),
+					      config.getMetricKey()));
+				}
+				metricConfigs.put(productLine, configs);
 			}
-
-			metricConfigs.put(entry.getValue(), configs);
 		}
 
-		Map<String, MetricItemConfig> allConfigs = m_metricConfigManager.getMetricConfig().getMetricItemConfigs();
-		Set<String> keysClone = new HashSet<String>(allConfigs.keySet());
-		List<MetricItemConfig> otherConfigs = new ArrayList<MetricItemConfig>();
-
-		for (String key : exists) {
-			keysClone.remove(key);
-		}
-		for (String str : keysClone) {
-			otherConfigs.add(allConfigs.get(str));
-		}
-		ProductLine otherProductLine = new ProductLine("Other").setTitle("Other");
-		metricConfigs.put(otherProductLine, otherConfigs);
 		model.setProductMetricConfigs(metricConfigs);
 	}
 
@@ -404,6 +456,32 @@ public class Handler implements PageHandler<Context> {
 		}
 		Collections.sort(projects, new ProjectCompartor());
 		return projects;
+	}
+
+	private List<String> queryDoaminList() {
+		List<String> result = new ArrayList<String>();
+		List<Project> projects = queryAllProjects();
+		
+		result.add("Default");
+		for (Project p : projects) {
+			result.add(p.getDomain());
+		}
+		return result;
+	}
+
+	private List<String> queryExceptionList() {
+		long current = System.currentTimeMillis();
+		Date start = new Date(current - current % TimeUtil.ONE_HOUR - TimeUtil.ONE_HOUR - TimeUtil.ONE_DAY);
+		Date end = new Date(start.getTime() + TimeUtil.ONE_HOUR);
+		BugReport report = m_reportService.queryBugReport(Constants.CAT, start, end);
+		Set<String> exceptions = new HashSet<String>();
+		
+		exceptions.add("Total");
+
+		for (Entry<String, com.dianping.cat.home.bug.entity.Domain> domain : report.getDomains().entrySet()) {
+			exceptions.addAll(domain.getValue().getExceptionItems().keySet());
+		}
+		return new ArrayList<String>(exceptions);
 	}
 
 	private Project queryProjectById(int projectId) {

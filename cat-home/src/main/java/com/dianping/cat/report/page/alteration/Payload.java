@@ -16,13 +16,22 @@ public class Payload extends AbstractReportPayload<Action> {
 
 	@FieldMeta("frequency")
 	private int m_frequency = 10;
-	
+
 	@FieldMeta("refresh")
 	private boolean m_refresh = false;
 
 	@FieldMeta("fullScreen")
 	private boolean fullScreen = false;
 	
+	@FieldMeta("showPuppet")
+	private boolean m_isShowPuppet = true;
+	
+	@FieldMeta("showWorkflow")
+	private boolean m_isShowWorkflow = true;
+
+	@FieldMeta("showLazyman")
+	private boolean m_isShowLazyman = true;
+
 	@FieldMeta("group")
 	private String m_group;
 
@@ -37,10 +46,10 @@ public class Payload extends AbstractReportPayload<Action> {
 
 	@FieldMeta("domain")
 	private String m_domain;
-
+	
 	@FieldMeta("ip")
 	private String m_ip;
-	
+
 	@FieldMeta("alterationDate")
 	private String m_alterationDate;
 
@@ -58,7 +67,7 @@ public class Payload extends AbstractReportPayload<Action> {
 
 	@FieldMeta("endTime")
 	private String m_endTime;
-
+	
 	@FieldMeta("hostname")
 	private String m_hostname;
 
@@ -72,23 +81,23 @@ public class Payload extends AbstractReportPayload<Action> {
 	public Action getAction() {
 		if (m_action == null) {
 			return Action.VIEW;
-		}else{
+		} else {
 			return m_action;
 		}
 	}
 
 	public Date getAlterationDate() {
 		try {
-	      return m_sdf.parse(m_alterationDate);
-      } catch (ParseException e) {
-      	return new Date();
-      }
+			return m_sdf.parse(m_alterationDate);
+		} catch (ParseException e) {
+			return new Date();
+		}
 	}
-	
+
 	public String getContent() {
 		return m_content;
 	}
-	
+
 	public String getDomain() {
 		if (m_domain == null || "".equals(m_domain)) {
 			return null;
@@ -96,7 +105,6 @@ public class Payload extends AbstractReportPayload<Action> {
 			return m_domain;
 		}
 	}
-	
 
 	public Date getEndTime() {
 		if (m_endTime == null || m_endTime.length() == 0) {
@@ -119,24 +127,25 @@ public class Payload extends AbstractReportPayload<Action> {
 	}
 
 	public String getHostname() {
-		if(m_hostname == null || "".equals(m_hostname)){
+		if (m_hostname == null || "".equals(m_hostname)) {
 			return null;
-		}else{
+		} else {
 			return m_hostname;
 		}
 	}
-
+	
 	public String getIp() {
 		return m_ip;
 	}
-
+	
 	public ReportPage getPage() {
 		return m_page;
 	}
+	
 
 	public Date getStartTime() {
 		if (m_startTime == null || m_startTime.length() == 0) {
-			return new Date(System.currentTimeMillis() - 2 * TimeUtil.ONE_HOUR);
+			return new Date(System.currentTimeMillis() - TimeUtil.ONE_HOUR / 2);
 		} else {
 			try {
 				return m_sdf.parse(m_startTime);
@@ -147,6 +156,10 @@ public class Payload extends AbstractReportPayload<Action> {
 	}
 
 	public String getTitle() {
+		if (m_title != null && m_title.length() > 128) {
+			m_title = m_title.substring(0, 128);
+		}
+
 		return m_title;
 	}
 
@@ -168,6 +181,18 @@ public class Payload extends AbstractReportPayload<Action> {
 
 	public boolean isRefresh() {
 		return m_refresh;
+	}
+
+	public boolean isShowLazyman() {
+		return m_isShowLazyman;
+	}
+
+	public boolean isShowPuppet() {
+		return m_isShowPuppet;
+	}
+
+	public boolean isShowWorkflow() {
+		return m_isShowWorkflow;
 	}
 
 	public void setAction(String action) {
@@ -221,6 +246,18 @@ public class Payload extends AbstractReportPayload<Action> {
 
 	public void setRefresh(boolean refresh) {
 		m_refresh = refresh;
+	}
+
+	public void setShowLazyman(boolean isShowLazyman) {
+		m_isShowLazyman = isShowLazyman;
+	}
+
+	public void setShowPuppet(boolean isShowPuppet) {
+		m_isShowPuppet = isShowPuppet;
+	}
+
+	public void setShowWorkflow(boolean isShowWorkflow) {
+		m_isShowWorkflow = isShowWorkflow;
 	}
 
 	public void setStartTime(String startTime) {

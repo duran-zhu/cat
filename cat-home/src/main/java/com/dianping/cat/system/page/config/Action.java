@@ -6,6 +6,8 @@ public enum Action implements org.unidal.web.mvc.Action {
 	PROJECT_UPDATE("update"),
 
 	PROJECT_UPDATE_SUBMIT("updateSubmit"),
+	
+	PROJECT_DELETE("projectDelete"),
 
 	AGGREGATION_ALL("aggregations"),
 
@@ -14,6 +16,14 @@ public enum Action implements org.unidal.web.mvc.Action {
 	AGGREGATION_UPDATE_SUBMIT("aggregationUpdateSubmit"),
 
 	AGGREGATION_DELETE("aggregationDelete"),
+
+	URL_PATTERN_ALL("urlPatterns"),
+
+	URL_PATTERN_UPDATE("urlPatternUpdate"),
+
+	URL_PATTERN_UPDATE_SUBMIT("urlPatternUpdateSubmit"),
+
+	URL_PATTERN_DELETE("urlPatternDelete"),
 
 	TOPOLOGY_GRAPH_NODE_CONFIG_LIST("topologyGraphNodeConfigList"),
 
@@ -46,10 +56,14 @@ public enum Action implements org.unidal.web.mvc.Action {
 	METRIC_CONFIG_ADD_OR_UPDATE_SUBMIT("metricConfigAddSumbit"),
 
 	METRIC_CONFIG_DELETE("metricConfigDelete"),
+	
+	METRIC_RULE_CONFIG_UPDATE("metricRuleConfigUpdate"),
 
 	EXCEPTION_THRESHOLDS("exceptionThresholds"),
 
 	EXCEPTION_THRESHOLD_UPDATE("exceptionThresholdUpdate"),
+	
+	EXCEPTION_THRESHOLD_ADD("exceptionThresholdAdd"),
 
 	EXCEPTION_THRESHOLD_UPDATE_SUBMIT("exceptionThresholdUpdateSubmit"),
 

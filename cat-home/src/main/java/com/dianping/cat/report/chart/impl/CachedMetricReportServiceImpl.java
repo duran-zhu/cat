@@ -12,6 +12,7 @@ import com.dianping.cat.consumer.metric.model.entity.MetricReport;
 import com.dianping.cat.helper.TimeUtil;
 import com.dianping.cat.report.chart.CachedMetricReportService;
 import com.dianping.cat.report.page.model.spi.ModelService;
+import com.dianping.cat.report.page.userMonitor.UserMonitorConvert;
 import com.dianping.cat.report.service.ReportService;
 import com.dianping.cat.service.ModelPeriod;
 import com.dianping.cat.service.ModelRequest;
@@ -31,7 +32,7 @@ public class CachedMetricReportServiceImpl implements CachedMetricReportService 
 
 		@Override
 		protected boolean removeEldestEntry(Entry<String, MetricReport> eldest) {
-			return size() > 1000;
+			return size() > 500;
 		}
 	};
 
@@ -54,7 +55,7 @@ public class CachedMetricReportServiceImpl implements CachedMetricReportService 
 	}
 
 	@Override
-	public MetricReport query(String product, Date start) {
+	public MetricReport queryMetricReport(String product, Date start) {
 		long time = start.getTime();
 		ModelPeriod period = ModelPeriod.getByTime(time);
 
@@ -71,6 +72,37 @@ public class CachedMetricReportServiceImpl implements CachedMetricReportService 
 			}
 		} else {
 			return getReportFromCache(product, time);
+		}
+	}
+
+	@Override
+	public MetricReport queryUserMonitorReport(String product, Map<String, String> properties, Date start) {
+		long time = start.getTime();
+		ModelPeriod period = ModelPeriod.getByTime(time);
+
+		if (period == ModelPeriod.CURRENT || period == ModelPeriod.LAST) {
+			ModelRequest request = new ModelRequest(product, time);
+
+			request.getProperties().putAll(properties);
+
+			if (m_service.isEligable(request)) {
+				ModelResponse<MetricReport> response = m_service.invoke(request);
+				MetricReport report = response.getModel();
+
+				return report;
+			} else {
+				throw new RuntimeException("Internal error: no eligable metric service registered for " + request + "!");
+			}
+		} else {
+			MetricReport report = getReportFromCache(product, time);
+			String city = properties.get("city");
+			String channel = properties.get("channel");
+			String type = properties.get("type");
+
+			UserMonitorConvert convert = new UserMonitorConvert(type, city, channel);
+
+			convert.visitMetricReport(report);
+			return convert.getReport();
 		}
 	}
 

@@ -2,13 +2,13 @@ package com.dianping.cat.consumer.metric;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.codehaus.plexus.personality.plexus.lifecycle.phase.Initializable;
 import org.codehaus.plexus.personality.plexus.lifecycle.phase.InitializationException;
@@ -19,6 +19,7 @@ import org.unidal.lookup.annotation.Inject;
 import org.xml.sax.SAXException;
 
 import com.dianping.cat.Cat;
+import com.dianping.cat.Constants;
 import com.dianping.cat.advanced.metric.config.entity.MetricConfig;
 import com.dianping.cat.advanced.metric.config.entity.MetricItemConfig;
 import com.dianping.cat.advanced.metric.config.transform.DefaultSaxParser;
@@ -31,6 +32,9 @@ public class MetricConfigManager implements Initializable {
 
 	@Inject
 	protected ConfigDao m_configDao;
+
+	@Inject
+	private ProductLineConfigManager m_productLineConfigManager;
 
 	private int m_configId;
 
@@ -86,6 +90,36 @@ public class MetricConfigManager implements Initializable {
 		if (m_metricConfig == null) {
 			m_metricConfig = new MetricConfig();
 		}
+
+		deleteUnusedConfig();
+	}
+
+	private void deleteUnusedConfig() {
+		try {
+			Map<String, MetricItemConfig> configs = m_metricConfig.getMetricItemConfigs();
+			List<String> unused = new ArrayList<String>();
+
+			for (MetricItemConfig config : configs.values()) {
+				String domain = config.getDomain();
+				String productLine = m_productLineConfigManager.queryProductLineByDomain(domain);
+
+				if (Constants.BROKER_SERVICE.equals(domain)) {
+					unused.add(config.getId());
+				}
+				if ("Default".equals(productLine)) {
+					unused.add(config.getId());
+				}
+				if (!config.getId().contains(":Metric:")) {
+					unused.add(config.getId());
+				}
+			}
+			for (String id : unused) {
+				m_metricConfig.removeMetricItemConfig(id);
+			}
+			storeConfig();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	public boolean insertIfNotExist(String domain, String type, String metricKey, ConfigItem item) {
@@ -119,7 +153,7 @@ public class MetricConfigManager implements Initializable {
 		return getMetricConfig().findMetricItemConfig(id);
 	}
 
-	public List<MetricItemConfig> queryMetricItemConfigs(Set<String> domains) {
+	public List<MetricItemConfig> queryMetricItemConfigs(Collection<String> domains) {
 		List<MetricItemConfig> configs = new ArrayList<MetricItemConfig>();
 		Map<String, MetricItemConfig> metricConfig = getMetricConfig().getMetricItemConfigs();
 

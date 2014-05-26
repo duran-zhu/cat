@@ -29,6 +29,7 @@ import com.dianping.cat.core.dal.MonthlyReportEntity;
 import com.dianping.cat.core.dal.WeeklyReport;
 import com.dianping.cat.core.dal.WeeklyReportDao;
 import com.dianping.cat.core.dal.WeeklyReportEntity;
+import com.dianping.cat.home.alertReport.entity.AlertReport;
 import com.dianping.cat.home.bug.entity.BugReport;
 import com.dianping.cat.home.dal.report.DailyReportContent;
 import com.dianping.cat.home.dal.report.DailyReportContentDao;
@@ -37,6 +38,7 @@ import com.dianping.cat.home.dal.report.MonthlyReportContentDao;
 import com.dianping.cat.home.dal.report.WeeklyReportContent;
 import com.dianping.cat.home.dal.report.WeeklyReportContentDao;
 import com.dianping.cat.home.heavy.entity.HeavyReport;
+import com.dianping.cat.home.nettopo.entity.NetGraphSet;
 import com.dianping.cat.home.service.entity.ServiceReport;
 import com.dianping.cat.home.utilization.entity.UtilizationReport;
 import com.dianping.cat.report.service.ReportService;
@@ -98,6 +100,9 @@ public class DefaultReportService implements ReportService {
 	private HeavyReportService m_heavyReportService;
 
 	@Inject
+	private AlertReportService m_alertReportService;
+
+	@Inject
 	private ServiceReportService m_serviceReportService;
 
 	@Inject
@@ -108,6 +113,9 @@ public class DefaultReportService implements ReportService {
 
 	@Inject
 	private UtilizationReportService m_utilizationReportService;
+
+	@Inject
+	private NetTopologyReportService m_netTopologyReportService;
 
 	@Override
 	public boolean insertDailyReport(DailyReport report, byte[] content) {
@@ -150,17 +158,20 @@ public class DefaultReportService implements ReportService {
 		try {
 			MonthlyReport monthReport = m_monthlyReportDao.findReportByDomainNamePeriod(report.getPeriod(),
 			      report.getDomain(), report.getName(), MonthlyReportEntity.READSET_FULL);
-			MonthlyReportContent reportContent = m_monthlyReportContentDao.createLocal();
 
-			reportContent.setKeyReportId(monthReport.getId());
-			reportContent.setReportId(monthReport.getId());
-			m_monthlyReportContentDao.deleteByPK(reportContent);
+			if (monthReport != null) {
+				MonthlyReportContent reportContent = m_monthlyReportContentDao.createLocal();
+
+				reportContent.setKeyReportId(monthReport.getId());
+				reportContent.setReportId(monthReport.getId());
+				m_monthlyReportDao.deleteReportByDomainNamePeriod(report);
+				m_monthlyReportContentDao.deleteByPK(reportContent);
+			}
 		} catch (Exception e) {
 			Cat.logError(e);
 		}
 
 		try {
-			m_monthlyReportDao.deleteReportByDomainNamePeriod(report);
 			m_monthlyReportDao.insert(report);
 
 			int id = report.getId();
@@ -180,18 +191,22 @@ public class DefaultReportService implements ReportService {
 	@Override
 	public boolean insertWeeklyReport(WeeklyReport report, byte[] content) {
 		try {
-			WeeklyReport monthReport = m_weeklyReportDao.findReportByDomainNamePeriod(report.getPeriod(),
+			WeeklyReport weeklyReport = m_weeklyReportDao.findReportByDomainNamePeriod(report.getPeriod(),
 			      report.getDomain(), report.getName(), WeeklyReportEntity.READSET_FULL);
-			WeeklyReportContent reportContent = m_weeklyReportContentDao.createLocal();
 
-			reportContent.setKeyReportId(monthReport.getId());
-			reportContent.setReportId(monthReport.getId());
-			m_weeklyReportContentDao.deleteByPK(reportContent);
+			if (weeklyReport != null) {
+				WeeklyReportContent reportContent = m_weeklyReportContentDao.createLocal();
+
+				reportContent.setKeyReportId(weeklyReport.getId());
+				reportContent.setReportId(weeklyReport.getId());
+				m_weeklyReportContentDao.deleteByPK(reportContent);
+				m_weeklyReportDao.deleteReportByDomainNamePeriod(report);
+			}
 		} catch (Exception e) {
 			Cat.logError(e);
 		}
+
 		try {
-			m_weeklyReportDao.deleteReportByDomainNamePeriod(report);
 			m_weeklyReportDao.insert(report);
 
 			int id = report.getId();
@@ -266,6 +281,16 @@ public class DefaultReportService implements ReportService {
 	@Override
 	public UtilizationReport queryUtilizationReport(String domain, Date start, Date end) {
 		return m_utilizationReportService.queryReport(domain, start, end);
+	}
+
+	@Override
+	public NetGraphSet queryNetTopologyReport(String domain, Date start, Date end) {
+		return m_netTopologyReportService.queryHourlyReport(domain, start, end);
+	}
+
+	@Override
+	public AlertReport queryAlertReport(String domain, Date start, Date end) {
+		return m_alertReportService.queryReport(domain, start, end);
 	}
 
 }

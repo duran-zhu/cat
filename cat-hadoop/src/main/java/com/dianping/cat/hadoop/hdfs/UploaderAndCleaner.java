@@ -14,6 +14,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException;
+import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.security.AccessControlException;
 import org.codehaus.plexus.logging.LogEnabled;
 import org.codehaus.plexus.logging.Logger;
@@ -78,8 +79,19 @@ public class UploaderAndCleaner implements Initializable, Task, LogEnabled {
 		StringBuilder baseDir = new StringBuilder(32);
 		FileSystem fs = m_fileSystemManager.getFileSystem("dump", baseDir);
 		Path file = new Path(baseDir.toString(), path);
-		FSDataOutputStream out = fs.create(file);
+		FSDataOutputStream out;
 
+		try {
+			out = fs.create(file);
+		} catch (RemoteException re) {
+			fs.delete(file, false);
+
+			out = fs.create(file);
+		} catch (AlreadyBeingCreatedException e) {
+			fs.delete(file, false);
+
+			out = fs.create(file);
+		}
 		return out;
 	}
 
@@ -247,6 +259,7 @@ public class UploaderAndCleaner implements Initializable, Task, LogEnabled {
 				} catch (AlreadyBeingCreatedException e) {
 					Cat.logError(e);
 					t.setStatus(e);
+
 					m_logger.error(String.format("Already being created (%s)!", path), e);
 				} catch (AccessControlException e) {
 					cat.logError(e);
@@ -268,7 +281,7 @@ public class UploaderAndCleaner implements Initializable, Task, LogEnabled {
 				}
 
 				try {
-					Thread.sleep(500);
+					Thread.sleep(100);
 				} catch (InterruptedException e) {
 					break;
 				}

@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,13 +19,14 @@ import com.dianping.cat.home.metricGroup.entity.MetricKeyConfig;
 import com.dianping.cat.report.page.LineChart;
 import com.dianping.cat.report.task.metric.MetricType;
 
-public class GraphCreator extends GraphCreatorBase{
+public class GraphCreator extends BaseGraphCreator{
 	
-	private Map<String, LineChart> buildChartData(final Map<String, double[]> datas, Date startDate, Date endDate,
+	public Map<String, LineChart> buildChartData(final Map<String, double[]> datas, Date startDate, Date endDate,
 			final Map<String, double[]> dataWithOutFutures) {
 		Map<String, LineChart> charts = new LinkedHashMap<String, LineChart>();
-		List<MetricItemConfig> alertItems = m_alertInfo.getLastestAlarm(5);
+		List<MetricItemConfig> alertItems = m_alertInfo.queryLastestAlarmInfo(5);
 		int step = m_dataExtractor.getStep();
+		
 		for (Entry<String, double[]> entry : dataWithOutFutures.entrySet()) {
 			String key = entry.getKey();
 			double[] value = entry.getValue();
@@ -54,14 +54,6 @@ public class GraphCreator extends GraphCreatorBase{
 		Map<String, double[]> allCurrentValues = m_dataExtractor.extract(oldCurrentValues);
 		Map<String, double[]> dataWithOutFutures = removeFutureData(endDate, allCurrentValues);
 		return buildChartData(oldCurrentValues, startDate, endDate, dataWithOutFutures);
-	}
-	
-	private void put(Map<String, LineChart> charts, Map<String, LineChart> result, String key) {
-		LineChart value = charts.get(key);
-
-		if (value != null) {
-			result.put(key, charts.get(key));
-		}
 	}
 
 	public Map<String, LineChart> buildDashboard(Date start, Date end) {
@@ -102,9 +94,9 @@ public class GraphCreator extends GraphCreatorBase{
 		return result;
 	}
 
-	private boolean isProductLineInGroup(String productLine, List<MetricKeyConfig> configs) {
+	protected boolean isProductLineInGroup(String productLine, List<MetricKeyConfig> configs) {
 		List<String> domains = m_productLineConfigManager.queryDomainsByProductLine(productLine);
-		List<MetricItemConfig> metricConfig = m_metricConfigManager.queryMetricItemConfigs(new HashSet<String>(domains));
+		List<MetricItemConfig> metricConfig = m_metricConfigManager.queryMetricItemConfigs(domains);
 
 		for (MetricKeyConfig metric : configs) {
 			String domain = metric.getMetricDomain();
@@ -146,7 +138,7 @@ public class GraphCreator extends GraphCreatorBase{
 	private boolean showInDashboard(String productline) {
 		List<String> domains = m_productLineConfigManager.queryDomainsByProductLine(productline);
 
-		List<MetricItemConfig> configs = m_metricConfigManager.queryMetricItemConfigs(new HashSet<String>(domains));
+		List<MetricItemConfig> configs = m_metricConfigManager.queryMetricItemConfigs(domains);
 		for (MetricItemConfig config : configs) {
 			if (config.isShowAvgDashboard() || config.isShowCountDashboard() || config.isShowSumDashboard()) {
 				return true;
@@ -155,8 +147,6 @@ public class GraphCreator extends GraphCreatorBase{
 		return false;
 	}
 
-
-	@Override
    protected Map<String, double[]> buildGraphData(MetricReport metricReport, List<MetricItemConfig> metricConfigs) {
 		Map<String, double[]> datas = m_pruductDataFetcher.buildGraphData(metricReport, metricConfigs);  
 		Map<String, double[]> values = new LinkedHashMap<String, double[]>();

@@ -8,6 +8,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
+import com.dianping.cat.report.alert.RuleConfigTest;
 import com.dianping.cat.report.graph.ValueTranslaterTest;
 import com.dianping.cat.report.page.cross.CrossReportMergerTest;
 import com.dianping.cat.report.page.dependency.DependencyReportMergerTest;
@@ -29,6 +30,8 @@ import com.dianping.cat.report.task.TaskHelperTest;
 import com.dianping.cat.report.task.event.EventDailyGraphMergerTest;
 import com.dianping.cat.report.task.event.EventGraphCreatorTest;
 import com.dianping.cat.report.task.event.HistoryEventMergerTest;
+import com.dianping.cat.report.task.exceptionAlert.AlertReportBuilderTest;
+import com.dianping.cat.report.task.exceptionAlert.TopReportVisitorTest;
 import com.dianping.cat.report.task.heavy.HeavyReportBuilderTest;
 import com.dianping.cat.report.task.metric.AlertConfigTest;
 import com.dianping.cat.report.task.problem.ProblemCreateGraphDataTest;
@@ -49,43 +52,43 @@ import com.dianping.cat.system.notify.RenderTest;
 ValueTranslaterTest.class,
 
 /* .report.page.model */
-EventReportFilterTest.class, 
+EventReportFilterTest.class,
 
 TransactionReportFilterTest.class,
 
 ProblemReportMergerTest.class,
 
 /* . report.page.transcation */
-PayloadTest.class, 
+PayloadTest.class,
 
 /* . report.page.cross */
 CrossReportMergerTest.class,
 
 /* graph test */
-EventGraphDataTest.class, 
+EventGraphDataTest.class,
 
 HeartbeatGraphDataTest.class,
 
-ProblemGraphDataTest.class, 
+ProblemGraphDataTest.class,
 
 TransactionGraphDataTest.class,
 
 /* .report.task */
-TaskConsumerTest.class, 
+TaskConsumerTest.class,
 
 TaskHelperTest.class,
 
-HistoryEventMergerTest.class, 
+HistoryEventMergerTest.class,
 
 HistoryTransactionMergerTest.class,
 
-ProblemCreateGraphDataTest.class, 
+ProblemCreateGraphDataTest.class,
 
 ProblemGraphCreatorTest.class,
 
-TransactionGraphCreatorTest.class, 
+TransactionGraphCreatorTest.class,
 
-EventGraphCreatorTest.class, 
+EventGraphCreatorTest.class,
 
 EventDailyGraphMergerTest.class,
 
@@ -99,17 +102,17 @@ RenderTest.class,
 StateReportMergerTest.class,
 
 /* Daily Graph Test */
-DailyTransactionReportGraphTest.class, 
+DailyTransactionReportGraphTest.class,
 
 ProblemDailyGraphTest.class,
 
 /* Metric */
-MetricReportParseTest.class, 
+MetricReportParseTest.class,
 
 MetricReportMergerTest.class,
 
 /* Dependency */
-DependencyReportMergerTest.class, 
+DependencyReportMergerTest.class,
 
 GraphConfigManagerTest.class,
 
@@ -123,12 +126,21 @@ ServiceReportMergerTest.class,
 
 AlertConfigTest.class,
 
-HeavyReportBuilderTest.class })
+HeavyReportBuilderTest.class,
+
+AlertReportBuilderTest.class,
+
+TopReportVisitorTest.class,
+
+RuleConfigTest.class,
+
+AlertConfigTest.class })
+
 public class AllTests {
-	
+
 	@BeforeClass
-   public static void setUp() {
+	public static void setUp() {
 		TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
 		Locale.setDefault(Locale.CHINESE);
-   }
+	}
 }

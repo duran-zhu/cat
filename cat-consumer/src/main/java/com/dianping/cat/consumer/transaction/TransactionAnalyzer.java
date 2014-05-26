@@ -1,5 +1,6 @@
 package com.dianping.cat.consumer.transaction;
 
+import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,18 +28,18 @@ import com.dianping.cat.service.DefaultReportManager.StoragePolicy;
 import com.dianping.cat.service.ReportManager;
 
 public class TransactionAnalyzer extends AbstractMessageAnalyzer<TransactionReport> implements LogEnabled {
-	public static final String ID = "transaction";
+	private TransactionStatisticsComputer m_computer = new TransactionStatisticsComputer();
+
+	@Inject
+	private TransactionDelegate m_delegate;
 
 	@Inject(ID)
 	private ReportManager<TransactionReport> m_reportManager;
 
 	@Inject
-	private TransactionDelegate m_delegate;
-
-	@Inject
 	private ServerConfigManager m_serverConfigManager;
 
-	private TransactionStatisticsComputer m_computer = new TransactionStatisticsComputer();
+	public static final String ID = "transaction";
 
 	private Pair<Boolean, Long> checkForTruncatedMessage(MessageTree tree, Transaction t) {
 		Pair<Boolean, Long> pair = new Pair<Boolean, Long>(true, t.getDurationInMicros());
@@ -67,6 +68,18 @@ public class TransactionAnalyzer extends AbstractMessageAnalyzer<TransactionRepo
 		}
 
 		return pair;
+	}
+
+	private double computeDuration(double duration) {
+		if (duration < 20) {
+			return duration;
+		} else if (duration < 200) {
+			return duration - duration % 5;
+		} else if (duration < 2000) {
+			return duration - duration % 50;
+		} else {
+			return duration - duration % 500;
+		}
 	}
 
 	@Override
@@ -99,8 +112,13 @@ public class TransactionAnalyzer extends AbstractMessageAnalyzer<TransactionRepo
 			try {
 				return queryReport(domain);
 			} catch (Exception e) {
-				// for concurrent modify exception
-				return queryReport(domain);
+				try {
+					return queryReport(domain);
+					// for concurrent modify exception
+				} catch (ConcurrentModificationException ce) {
+					Cat.logEvent("ConcurrentModificationException", domain, Event.SUCCESS, null);
+					return new TransactionReport(domain);
+				}
 			}
 		} else {
 			Map<String, TransactionReport> reports = m_reportManager.getHourlyReports(getStartTime());
@@ -203,8 +221,7 @@ public class TransactionAnalyzer extends AbstractMessageAnalyzer<TransactionRepo
 			}
 		}
 
-		// update statistics
-		Integer allDuration = (int) duration;
+		int allDuration = ((int) computeDuration(duration));
 
 		name.setMax(Math.max(name.getMax(), duration));
 		name.setMin(Math.min(name.getMin(), duration));

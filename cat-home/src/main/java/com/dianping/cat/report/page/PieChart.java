@@ -7,25 +7,36 @@ import java.util.List;
 
 public class PieChart {
 
+	private String m_title;
+
 	private List<Item> m_items = new ArrayList<Item>();
 
-	private transient int MAX_SIZE = 10;
+	private transient int m_size = 10;
 
-	public void addItems(List<Item> temps) {
-		Collections.sort(temps, new ItemCompartor());
-		int size = temps.size();
+	public PieChart setTitle(String title) {
+		m_title = title;
+		return this;
+	}
 
-		if (size <= MAX_SIZE) {
-			m_items = temps;
+	public String getTitle() {
+   	return m_title;
+   }
+
+	public void addItems(List<Item> items) {
+		Collections.sort(items, new ItemCompartor());
+		int size = items.size();
+
+		if (size <= m_size) {
+			m_items = items;
 		} else {
-			for (int i = 0; i < MAX_SIZE; i++) {
-				m_items.add(temps.get(i));
+			for (int i = 0; i < m_size; i++) {
+				m_items.add(items.get(i));
 			}
 			Item item = new Item().setTitle("Other");
 
 			double sum = 0;
-			for (int i = MAX_SIZE; i < size; i++) {
-				Item temp = temps.get(i);
+			for (int i = m_size; i < size; i++) {
+				Item temp = items.get(i);
 
 				sum += temp.getNumber();
 			}
@@ -39,6 +50,11 @@ public class PieChart {
 
 	public String getJsonString() {
 		return new JsonBuilder().toJson(this);
+	}
+
+	public PieChart setMaxSize(int size) {
+		m_size = size;
+		return this;
 	}
 
 	public static class Item {

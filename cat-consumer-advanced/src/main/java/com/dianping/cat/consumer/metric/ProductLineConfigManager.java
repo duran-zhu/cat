@@ -23,6 +23,7 @@ import org.unidal.lookup.annotation.Inject;
 import org.xml.sax.SAXException;
 
 import com.dianping.cat.Cat;
+import com.dianping.cat.Constants;
 import com.dianping.cat.consumer.company.model.entity.Company;
 import com.dianping.cat.consumer.company.model.entity.Domain;
 import com.dianping.cat.consumer.company.model.entity.ProductLine;
@@ -47,6 +48,22 @@ public class ProductLineConfigManager implements Initializable, LogEnabled {
 	private Logger m_logger;
 
 	private static final String CONFIG_NAME = "productLineConfig";
+
+	public static final String METRIC_MONITOR = "业务监控";
+
+	public static final String NETWORK_MONITOR = "网络监控";
+
+	public static final String USER_MONITOR = "外部监控";
+
+	public static final String APPLICATION_MONITOR = "应用监控";
+
+	public static final String SYSTEM_MONITOR = "系统监控";
+
+	public static final String NETWORK_SWITCH_PREFIX = "switch-";
+
+	public static final String NETWORK_F5_PREFIX = "f5-";
+
+	public static final String SYSTEM_MONITOR_PREFIX = "system-";
 
 	private Map<String, String> buildDomainToProductLines() {
 		Map<String, ProductLine> productLines = getCompany().getProductLines();
@@ -110,6 +127,25 @@ public class ProductLineConfigManager implements Initializable, LogEnabled {
 		m_domainToProductLines = buildDomainToProductLines();
 	}
 
+	public void buildDefaultDashboard(ProductLine productLine, String domain) {
+		String line = productLine.getId();
+		boolean userMonitor = false;
+		boolean networkMonitor = false;
+		boolean systemMonitor = false;
+
+		if (Constants.BROKER_SERVICE.equals(domain)) {
+			userMonitor = true;
+		} else if (line.toLowerCase().startsWith(NETWORK_SWITCH_PREFIX) || line.toLowerCase().startsWith(NETWORK_F5_PREFIX)) {
+			networkMonitor = true;
+		} else if (line.toLowerCase().startsWith(SYSTEM_MONITOR_PREFIX)) {
+			systemMonitor = true;
+		}
+
+		productLine.setNetworkDashboard(networkMonitor);
+		productLine.setUserMonitorDashboard(userMonitor);
+		productLine.setSystemMonitorDashboard(systemMonitor);
+	}
+
 	public boolean insertIfNotExsit(String line, String domain) {
 		Company company = getCompany();
 
@@ -120,9 +156,10 @@ public class ProductLineConfigManager implements Initializable, LogEnabled {
 				productLine = new ProductLine();
 				productLine.setId(line);
 				productLine.setTitle(line);
+				buildDefaultDashboard(productLine, domain);
 				productLine.addDomain(new Domain(domain));
+				productLine.setMetricDashboard(false);
 				company.addProductLine(productLine);
-
 				return storeConfig();
 			} else {
 				Map<String, Domain> domains = productLine.getDomains();
@@ -135,9 +172,8 @@ public class ProductLineConfigManager implements Initializable, LogEnabled {
 					return storeConfig();
 				}
 			}
-		} else {
-			return false;
 		}
+		return false;
 	}
 
 	public boolean insertProductLine(ProductLine line, String[] domains) {
@@ -185,7 +221,7 @@ public class ProductLineConfigManager implements Initializable, LogEnabled {
 		}
 		return sortProductLineByOrder(productLines);
 	}
-	
+
 	public Map<String, ProductLine> queryNetworkProductLines() {
 		Map<String, ProductLine> productLines = new LinkedHashMap<String, ProductLine>();
 
@@ -202,6 +238,52 @@ public class ProductLineConfigManager implements Initializable, LogEnabled {
 		String productLine = m_domainToProductLines.get(domain);
 
 		return productLine == null ? "Default" : productLine;
+	}
+
+	public Map<String, List<ProductLine>> queryTypeProductLines() {
+		Map<String, List<ProductLine>> productLines = new LinkedHashMap<String, List<ProductLine>>();
+
+		productLines.put(METRIC_MONITOR, new ArrayList<ProductLine>());
+		productLines.put(USER_MONITOR, new ArrayList<ProductLine>());
+		productLines.put(APPLICATION_MONITOR, new ArrayList<ProductLine>());
+		productLines.put(NETWORK_MONITOR, new ArrayList<ProductLine>());
+		productLines.put(SYSTEM_MONITOR, new ArrayList<ProductLine>());
+
+		for (ProductLine line : getCompany().getProductLines().values()) {
+			String id = line.getId();
+
+			if (id != null && id.length() > 0) {
+				if (line.getMetricDashboard()) {
+					productLines.get(METRIC_MONITOR).add(line);
+				}
+				if (line.getNetworkDashboard()) {
+					productLines.get(NETWORK_MONITOR).add(line);
+				}
+				if (line.getUserMonitorDashboard()) {
+					productLines.get(USER_MONITOR).add(line);
+				}
+				if (line.getDashboard() || line.getApplicationDashboard()) {
+					line.setApplicationDashboard(true);
+					productLines.get(APPLICATION_MONITOR).add(line);
+				}
+				if (line.getSystemMonitorDashboard()) {
+					productLines.get(SYSTEM_MONITOR).add(line);
+				}
+			}
+		}
+
+		for (Entry<String, List<ProductLine>> entry : productLines.entrySet()) {
+			List<ProductLine> value = entry.getValue();
+			Collections.sort(value, new Comparator<ProductLine>() {
+
+				@Override
+				public int compare(ProductLine o1, ProductLine o2) {
+					return (int) (o1.getOrder() * 100 - o2.getOrder() * 100);
+				}
+			});
+		}
+
+		return productLines;
 	}
 
 	public void refreshProductLineConfig() throws DalException, SAXException, IOException {
